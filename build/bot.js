@@ -33,6 +33,7 @@ const specifiedAddress = wallet.address;
 const contractAddress = process.env.DEPLOYED_CONTRACT_ADDRESS;
 // Create contract instance
 const contract = new ethers_1.ethers.Contract(contractAddress, PingPong_1.default.abi, wallet);
+const queue = [];
 const checkExistingPings = async () => {
     try {
         // Get the filter for Ping events
@@ -58,12 +59,9 @@ const checkExistingPings = async () => {
         const pongs = pongEventsFromSpecifiedAddress.length;
         const pongsToSend = pings - pongs;
         if (pongsToSend > 0) {
-            console.log(`Sending ${pongsToSend} Pong transactions...`);
             for (let i = 0; i < pongsToSend; i++) {
-                const tx = await (0, helpers_1.postWithRetry)(() => contract.pong(ethers_1.ethers.hashMessage("Ping")));
-                console.log(`Pong transaction sent: ${tx.hash}`);
-                await tx.wait();
-                console.log(`Pong transaction confirmed: ${tx.hash}`);
+                queue.push({ blockNumber: i });
+                console.log(`Ping event added to queue: ${i}`);
             }
         }
     }
@@ -82,20 +80,8 @@ const main = async () => {
             console.log("Ping event received");
             // Fetch the current block number
             const blockNumber = await provider.getBlockNumber();
-            // Check if this event is new since the last one we processed
-            if (blockNumber > lastProcessedBlock) {
-                try {
-                    // Call the 'pong' function on the contract, passing the hash of 'Ping'
-                    const tx = await (0, helpers_1.postWithRetry)(() => contract.pong(ethers_1.ethers.hashMessage("Ping")));
-                    // Wait for the transaction to be mined
-                    await tx.wait();
-                    console.log(`Pong sent for Ping at block ${blockNumber}`);
-                    lastProcessedBlock = blockNumber;
-                }
-                catch (error) {
-                    console.error(`Error sending Pong: ${error.message}`);
-                }
-            }
+            queue.push({ blockNumber });
+            console.log(`Ping event added to queue: ${blockNumber}`);
         });
         console.log("Bot is running...");
     }
@@ -104,5 +90,36 @@ const main = async () => {
         process.exit(1);
     }
 };
+const processPingQueue = async () => {
+    if (queue.length === 0)
+        return;
+    const pingEvent = queue[0];
+    try {
+        // Attempt to send a Pong transaction
+        // If gasPrice is defined on the pingEvent, use it for the transaction
+        const tx = await (0, helpers_1.postWithRetry)(() => contract.pong(ethers_1.ethers.hashMessage("Ping"), {
+            gasPrice: pingEvent.gasPrice,
+        }));
+        await tx.wait();
+        console.log(`Pong sent and confirmed for Ping at block ${pingEvent.blockNumber}`);
+        // Remove the Ping event from the queue since it was successfully processed
+        queue.shift();
+        console.log(queue);
+    }
+    catch (error) {
+        console.error(`Error sending Pong for Ping at block ${pingEvent.blockNumber}:`, error);
+        // If the transaction failed, double the gas price for the next attempt
+        if (pingEvent.gasPrice) {
+            pingEvent.gasPrice = pingEvent.gasPrice * 2n;
+        }
+        else {
+            // If gas price is not set, get the current gas price and set it on the pingEvent
+            const feeData = await provider.getFeeData();
+            pingEvent.gasPrice = feeData.gasPrice ?? 1n;
+        }
+    }
+};
+// Set up setInterval to run the processPingQueue function every minute
+setInterval(processPingQueue, 60 * 1000);
 // Run the bot and handle any uncaught errors
 main();
