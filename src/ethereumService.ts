@@ -57,18 +57,13 @@ class EthereumService {
 
       const filteredPongEvents: EventLog | Log[] = []
 
-      pongEvents.forEach(
-        async (event) => {
-          const transaction = await this.provider.getTransaction(
-            event.transactionHash
-          );
-          if (transaction?.from.toLowerCase() === this.wallet.address.toLowerCase()) {
-            filteredPongEvents.push(event)
-            return true;
-          }
+      for (const event of pongEvents) {
+        const transaction = await this.provider.getTransaction(event.transactionHash);
+        if (transaction?.from.toLowerCase() === this.wallet.address?.toLowerCase()) {
+          filteredPongEvents.push(event);
         }
-      );
-
+      }
+  
       return filteredPongEvents;
     } catch (error) {
       console.error("Error fetching Pong events:", error);
@@ -88,6 +83,7 @@ class EthereumService {
       const pings = pingEvents.length;
       const pongs = pongEvents.length;
       let pongsToSend = pings - pongs;
+      //console.log(pings, pongs, pongsToSend)
       if (pongsToSend > 0) {
         for (let i = pingEvents.length - 1; i >= 0 && pongsToSend > 0; i--, pongsToSend--) {
           queueManager.enqueue({ blockNumber: pingEvents[i].blockNumber });
