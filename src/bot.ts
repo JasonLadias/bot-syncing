@@ -16,10 +16,18 @@ if (
   process.exit(1);
 }
 
+const checkFailedPings = async () => {
+  try {
+    await ethereumService.enqueuePongsToSend(config.startBlock);
+  } catch (error) {
+    console.error("Error in checkFailedPings:", error);
+  }
+}
+
 const main = async (): Promise<void> => {
   try {
     // Check for existing Ping events when the program was not running
-    await ethereumService.enqueuePongsToSend(config.startBlock);
+    await checkFailedPings();
     // Event listener for Ping events
     ethereumService.listenToPingEvents();
 
@@ -68,6 +76,12 @@ const processPingQueue = async () => {
 
 // Set up setInterval to run the processPingQueue function every minute
 setInterval(processPingQueue, 60 * 1000);
+
+// Set up setInterval to run the checkFailedPings function every 10 minutes
+setInterval(async () => {
+  console.log("Checking for failed Pings...");
+  await checkFailedPings();
+}, 10 * 60 * 1000)
 
 // Run the bot and handle any uncaught errors
 main();

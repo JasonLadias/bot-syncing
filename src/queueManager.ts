@@ -5,7 +5,10 @@ class QueueManager {
   queue: PongQueueElement[] = [];
 
   enqueue(event: PongQueueElement): void {
-    this.queue.push(event);
+    const exists = this.queue.some(e => e.blockNumber === event.blockNumber);
+    if (!exists) {
+      this.queue.push(event);
+    }
   }
 
   dequeue(): PongQueueElement | undefined {

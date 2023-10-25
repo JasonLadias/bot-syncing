@@ -1,4 +1,4 @@
-import { ethers } from "ethers";
+import { EventLog, Log, ethers } from "ethers";
 import { config } from "./config";
 import { queueManager } from "./queueManager";
 import PingPong from "./abi/PingPong";
@@ -40,19 +40,21 @@ class EthereumService {
         startBlock
       );
 
-      const pongEventsFromSpecifiedAddress = pongEvents.filter(
+      const filteredPongEvents: EventLog | Log[] = []
+
+      pongEvents.forEach(
         async (event) => {
           const transaction = await this.provider.getTransaction(
             event.transactionHash
           );
-          return (
-            transaction?.from.toLowerCase() ===
-            this.wallet.address.toLowerCase()
-          );
+          if (transaction?.from.toLowerCase() === this.wallet.address.toLowerCase()) {
+            filteredPongEvents.push(event)
+            return true;
+          }
         }
       );
 
-      return pongEventsFromSpecifiedAddress;
+      return filteredPongEvents;
     } catch (error) {
       console.error("Error fetching Pong events:", error);
       return [];
@@ -63,17 +65,13 @@ class EthereumService {
     try {
       const pingEvents = await this.getPingEvents(startBlock);
       const pongEvents = await this.getPongEvents(startBlock);
-
-
       const pings = pingEvents.length;
       const pongs = pongEvents.length;
-      const pongsToSend = pings - pongs;
-      console.log(pings, pongs, pongsToSend)
+      let pongsToSend = pings - pongs;
       if (pongsToSend > 0) {
-        console.log(`There are ${pongsToSend} Pongs to send`);
-        for (let i = 0; i < pongsToSend; i++) {
-          queueManager.enqueue({ blockNumber: i });
-          console.log(`Ping event added to queue: ${i}`);
+        for (let i = pingEvents.length - 1; i >= 0 && pongsToSend > 0; i--, pongsToSend--) {
+          queueManager.enqueue({ blockNumber: pingEvents[i].blockNumber });
+          console.log(`Ping event added to queue: ${pingEvents[i].blockNumber}`);
         }
       }
     } catch (error) {
