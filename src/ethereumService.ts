@@ -4,6 +4,9 @@ import { queueManager } from "./queueManager";
 import PingPong from "./abi/PingPong";
 import { postWithRetry } from "./helpers";
 
+/**
+ * This class is used to interact with the Ethereum blockchain.
+ */
 class EthereumService {
   private provider: ethers.InfuraProvider;
   private wallet: ethers.Wallet;
@@ -22,6 +25,12 @@ class EthereumService {
     );
   }
 
+  /**
+   * This method returns the Ping events emitted by the contract after a specific block.
+   * 
+   * @param startBlock 
+   * @returns 
+   */
   public async getPingEvents(startBlock: number): Promise<any> {
     try {
       const pingFilter = this.contract.filters.Ping();
@@ -32,6 +41,12 @@ class EthereumService {
     }
   }
 
+  /**
+   * This method returns the Pong events emitted by the contract after a specific block, for the wallet address.
+   * 
+   * @param startBlock 
+   * @returns 
+   */
   public async getPongEvents(startBlock: number): Promise<any> {
     try {
       const pongFilter = this.contract.filters.Pong();
@@ -61,6 +76,11 @@ class EthereumService {
     }
   }
 
+  /**
+   * Compares the number of Ping and Pong events and adds the missing Pings to the queue.
+   * 
+   * @param startBlock 
+   */
   public async enqueuePongsToSend(startBlock: number): Promise<void> {
     try {
       const pingEvents = await this.getPingEvents(startBlock);
@@ -79,6 +99,13 @@ class EthereumService {
     }
   }
 
+  /**
+   * This method sends a Pong transaction to the contract.
+   * 
+   * @param hashMessage 
+   * @param gasPrice 
+   * @returns 
+   */
   public async sendPong(
     hashMessage: string,
     gasPrice?: bigint
@@ -95,6 +122,9 @@ class EthereumService {
     }
   }
 
+  /**
+   * This method listens to Ping events emitted by the contract.
+   */
   public async listenToPingEvents(): Promise<void> {
     this.contract.on("Ping", async () => {
       try {
@@ -112,6 +142,11 @@ class EthereumService {
     });
   }
 
+  /**
+   * This method returns the current gas price.
+   * 
+   * @returns 
+   */
   public async getGasPrice(): Promise<bigint> {
     const feeData = await this.provider.getFeeData();
     return feeData.gasPrice ? BigInt(feeData.gasPrice.toString()) : 1n;

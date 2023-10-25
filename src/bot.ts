@@ -16,6 +16,9 @@ if (
   process.exit(1);
 }
 
+/**
+ * This method checks for any Ping events that were missed while the bot was not running.
+ */
 const checkFailedPings = async () => {
   try {
     await ethereumService.enqueuePongsToSend(config.startBlock);
@@ -24,20 +27,9 @@ const checkFailedPings = async () => {
   }
 }
 
-const main = async (): Promise<void> => {
-  try {
-    // Check for existing Ping events when the program was not running
-    await checkFailedPings();
-    // Event listener for Ping events
-    ethereumService.listenToPingEvents();
-
-    console.log("Bot is running...");
-  } catch (error) {
-    console.error("Error in main:", error);
-    process.exit(1);
-  }
-};
-
+/** 
+ * This method processes the first element in the queue.
+ */
 const processPingQueue = async () => {
   const pingEvent = queueManager.peekFirst();
   if (!pingEvent) {
@@ -71,6 +63,20 @@ const processPingQueue = async () => {
       // If gas price is not set, get the current gas price and set it on the pingEvent
       pingEvent.gasPrice = await ethereumService.getGasPrice();
     }
+  }
+};
+
+const main = async (): Promise<void> => {
+  try {
+    // Check for existing Ping events when the program was not running
+    await checkFailedPings();
+    // Event listener for Ping events
+    ethereumService.listenToPingEvents();
+
+    console.log("Bot is running...");
+  } catch (error) {
+    console.error("Error in main:", error);
+    process.exit(1);
   }
 };
 
